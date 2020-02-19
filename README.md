@@ -14,7 +14,7 @@ Read sections 16.1-16.3, 16.5 of [Valvano's chapter on the Internet of Things.](
 
 **It is very important that you read this lab document and all the examples closely. Almost all of the code to complete the lab is provided in this document. Some information is redundant. You need to decide what code is necessary for your application and make changes as necessary (e.g. to match your virtual pins).**
 
-**In industry and future courses, you will receive requirements documents and some example code with minimal documentation. It takes practice to figure out what you need to complete your project. This lab is an exercise in reading documentation to figure it out. You may need to read sections multiple times.**
+**In industry and future courses, you will receive requirements documents and some example code with minimal documentation. It takes practice to figure out what you need to complete your project. This lab is an exercise in reading documentation to figure it out. You may need to read sections multiple times. Note that the code is provided in snippets, not sketches!**
 
 ## Setting up Blynk
 
@@ -51,15 +51,17 @@ WiFi is an ubiquitous wireless communication standard you will find practically 
 
 # Understanding Blynk
 
-   In lab 1, we used a loop that ran continuously, constantly checking if data was available, and constantly adjusting data on pins. We used the `delay()` function to control the timing. With Blynk, we can't do this! Blynk is event based and runs behind the scenes. Using `delay()` will mess up the timing and can break Blynk. To work around this, we will use periodic timer events with short handlers. This way, we can run many tasks asynchronously that won't interfere with or block each other. There are a lot of functions for interfacing with Blynk. There are event driven functions that will trigger asynchronously when the Blynk app communicates with your ESP32, such as read and write. Below are the ones you will need with snippets of example code.
+   Blynk is an Arduino library that provides classes and functions for interfacing with its mobile app via the internet.  Blynk is event based and runs behind the scenes. In lab 1, we used the `delay()` function in the `loop()` to control timing. Because Blynk is event based, using `delay()` will mess up the timing and break it. These next sections show how to accomplish certain tasks with Blynk _asynchronously_. In this context, asynchronous means that events can happen at any time and will not be blocked by other functions for significant amounts of time.
+
+   An important concept to understand is the separation of interface and implementation. An interface defines how a function is called, and is usually in a header file. The implementation describes what the function actually does. The Blynk framework has several functions where you get to decide what they do, but Blynk decides how and when they're called. Blynk is providing the _interface_, while you provide the _implementation_. WRITE, READ, and Timer are described below and are examples of this concept.
 
 ## Virtual Pins
 
-   Blynk has created an abstract data type that contains everything you need to interface with virtual pins.  The virtual pins are #defined in the Blynk header files, so you can call them by their names, V0, V1, etc. Be sure to document what pins you used in the Blynk app for each widget.
+   Blynk has created an abstract data type that contains everything you need to interface with virtual pins. The virtual pins are #defined in the Blynk header files, so you can call them by their names, V0, V1, etc. Be sure to document what pins you used in the Blynk app for each widget.
 
 ## Blynk Write
 
-   This function refers to the Blynk Application writing data to a virtual pin. When you press the button on your phone, a 1 is written to a virtual pin. You want your ESP32 to know when that happens so it can turn on the LED. When the write event occurs, the `BLYNK_WRITE(pin)` handler is executed so your ESP32 will know that pin has been written to. This is an example of how to use the `BLYNK_WRITE` function:
+   `BLYNK_WRITE` is an asynchronous function that is executed whenever a virtual pin is written to. Specifically, when the Blynk phone App is writing data to a virtual pin. It is an event handler that you tell what to do, and don't have to worry about calling anywhere, Blynk takes care of that. When you press the button on your phone, a 1 is written to a virtual pin. You want your ESP32 to know when that happens so it can turn on the LED. When the write event occurs, the `BLYNK_WRITE(pin)` function is executed so your ESP32 will know that pin has been written to. Example:
 
 ```C
 // This function executes whenever V1 is written to.
@@ -80,11 +82,11 @@ BLYNK_WRITE(V1)
 }
 ```
 
-   When you write code inside the BLYNK_WRITE() function, you are essentially injecting that code into the Blynk ADT.
+   When you write code inside the BLYNK_WRITE() function, you are essentially injecting that code into the Blynk framework. They give you the interface, you write the implementation.
 
 ## Blynk Read
 
-The opposite of Blynk write is Blynk read. In this case, the app requests data from the ESP32. Example:
+The opposite of Blynk write is Blynk read. In this case, the mobile app requests data from the ESP32. Again, you don't need to ever call it, you would just need to tell it what to do. Example:
 
 ```C
 // This function is executed whenever Blynk pin V5 requests data from the ESP32
@@ -115,7 +117,7 @@ void setup() {
     ledcAttachPin(LED, ledChannel);
 }
 
-// If virtual pin 2 controls fade value, 0 to 1023. Note: Brightness may be inversely proportional
+// If virtual pin 2 controls fade value, 0 to 1023.
 BLYNK_WRITE(2)
 {
     // param is a member variable of the Blynk ADT. It is exposed so you can read it.
@@ -126,12 +128,11 @@ BLYNK_WRITE(2)
 
 ## Sending data periodically
 
-   Sometimes you will want to periodically read a value from your ESP32 and display it. E.g. you're collecting data from a sensor, and you want to display it on the Blynk App. Below is example code using the Blynk Timer to create a periodic event, during which you can send whatever data you want.
+   Sometimes you will want to periodically read a value from your ESP32 and display it. E.g. you're collecting data from a sensor, and you want to display it on the Blynk App. The Blynk Timer abstracts a hardware timer for you, all you need to give it is a period and a function to call each period. Below is example code using the Blynk Timer to create a periodic event, during which you can send whatever data you want.
 
 ```C
 // You will need to define a timer object. BlynkTimer uses your MCU hardware to create a timer
-// that is compatible with all the Blynk events. You cannot use delays with Blynk because
-// there's a lot going on behind the scenes.
+// that is compatible with all the Blynk events.
 BlynkTimer timer;
 
 // This function sends Arduino's up time every second to Virtual Pin 0.
@@ -167,7 +168,7 @@ void loop()
 
 ## The Blynk terminal
 
-   Blynk makes interacting with the Blynk Terminal easy. You just need to write strings to the virtual pin associated with it. This will display string messages on it. Just like in Lab 1's UART example, you will need to periodically check if Serial data is available. Previously, we did this in the loop. But now we can't put anything in the loop that isn't Blynk, so instead we will use a periodic timer event. It is possible to do multiple periodic events with only one timer by using `millis()`. Use a counter and whenever it is divisible by a factor, do an action. Example:
+   Blynk makes interacting with the Blynk Terminal easy. You just need to write strings to the virtual pin associated with it. This will display string messages on it. Just like in Lab 1's UART example, you will need to periodically check if Serial data is available. Previously, we did this in the loop. But now we can't put anything in the loop that isn't Blynk, so instead we will use a periodic timer event. It is possible to do multiple periodic events with only one timer: Use a counter and whenever it is divisible by a factor, do an action. Example:
 
 ```C
 int time_count = 0; // timer counter global variable
@@ -229,4 +230,4 @@ To meet the requirements, I used:
 
 There are many ways to achieve the desired result. You may not need to use all those globals.
 
-Deliverables: Your Arduino code and completed `Report.md`
+**Deliverables: Your Arduino code and completed `Report.md`**

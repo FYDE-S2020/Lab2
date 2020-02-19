@@ -34,6 +34,10 @@ Team Number:
 
     answer
 
-8. Screenshot of your Blynk App:
+8. What is the difference between interface and implementation? Why is it important?
+
+   answer
+
+9. Screenshot of your Blynk App:
 
     ![your image here->](img/placeholder.png)
