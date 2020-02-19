@@ -30,7 +30,7 @@ Read sections 16.1-16.3, 16.5 of [Valvano's chapter on the Internet of Things.](
 
     ```C
     char    ssid[32]        = "EE-IOT-Platform-02";
-    char    pass[32]        = "dUQQE?&W44x7";
+    char    pass[32]        = "g!TyA>hR2JTy";
     ```
 
     Another alternative is to use your own mobile hotspot. This is usually the most reliable option.
